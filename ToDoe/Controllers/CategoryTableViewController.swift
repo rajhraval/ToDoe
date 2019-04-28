@@ -7,14 +7,14 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryTableViewController: UITableViewController {
     
-    var categoryArray = [Category]()
+    let realm = try! Realm()
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    
+    var categoryArray : Results<Category>?
+        
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -22,47 +22,17 @@ class CategoryTableViewController: UITableViewController {
 
     }
     
-    // MARK:- Add New Categories
-    
-    @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
-        
-        var textfield = UITextField()
-        
-        let alert = UIAlertController(title: "Add ToDoe Category Item", message: "", preferredStyle: .alert)
-        
-        let action = UIAlertAction(title: "Add Category Item", style: .default) { (action) in
-            
-            let newCategoryItem = Category(context: self.context)
-            newCategoryItem.name = textfield.text!
-            self.categoryArray.append(newCategoryItem)
-            
-            self.saveCategories()
-            
-        }
-        
-        alert.addTextField { (alertTextField) in
-            alertTextField.placeholder = "Add a new category"
-            textfield = alertTextField
-        }
-        
-        alert.addAction(action)
-        present(alert, animated: true, completion: nil)
-        
-    }
-    
     // MARK:- Table View Datasource Methods
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return categoryArray?.count ?? 1
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
         
-        let categoryItem = categoryArray[indexPath.row]
-        
-        cell.textLabel?.text = categoryItem.name
+        cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No Categories Yet"
         
         return cell
         
@@ -82,7 +52,7 @@ class CategoryTableViewController: UITableViewController {
         let destinationVC = segue.destination as! ToDoListViewController
         
         if let indexPath = tableView.indexPathForSelectedRow {
-            destinationVC.selectedCategory = categoryArray[indexPath.row]
+            destinationVC.selectedCategory = categoryArray?[indexPath.row]
         }
     }
     
@@ -90,28 +60,56 @@ class CategoryTableViewController: UITableViewController {
     
     // MARK:- Data Manipulation Methods for CRUD
     
-    func saveCategories() {
+    func save(category: Category) {
         
         do {
-            try context.save()
+            try realm.write {
+                realm.add(category)
+            }
         } catch {
-            print("Error saving items to the context \(context)")
+            print("Error saving items to the realm \(error)")
         }
         
         self.tableView.reloadData()
         
     }
     
-    func loadCategories(with request: NSFetchRequest<Category> = Category.fetchRequest()) {
+    func loadCategories() {
         
-        do {
-            categoryArray = try context.fetch(request)
-        } catch {
-            print("Error fetching items from the context \(error)")
-        }
+        categoryArray = realm.objects(Category.self)
         
         tableView.reloadData()
         
     }
+    
+    // MARK:- Add New Categories
+    
+    @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
+        
+        var textfield = UITextField()
+        
+        let alert = UIAlertController(title: "Add ToDoe Category Item", message: "", preferredStyle: .alert)
+        
+        let action = UIAlertAction(title: "Add Category Item", style: .default) { (action) in
+            
+            let newCategoryItem = Category()
+            newCategoryItem.name = textfield.text!
+    
+            
+            self.save(category: newCategoryItem)
+            
+        }
+        
+        alert.addTextField { (alertTextField) in
+            alertTextField.placeholder = "Add a new category"
+            textfield = alertTextField
+        }
+        
+        alert.addAction(action)
+        present(alert, animated: true, completion: nil)
+        
+    }
+    
+
     
 }
